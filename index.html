@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Document Assistant (United Docs Processor)</title>
+    <!-- Core PDF Lib for Form Generation -->
     <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
     <style>
         :root { --cbus: #009354; }
@@ -23,8 +24,15 @@
         .btn-clear { width: 100%; padding: 15px; background: #e0e0e0; color: #333; border: none; border-radius: 12px; font-size: 16px; font-weight: bold; margin-top: 10px; cursor: pointer; }
         .btn-clear:hover { background: #ccc; }
         #status { text-align: center; margin-top: 20px; font-weight: bold; color: var(--cbus); font-size: 14px; min-height: 20px; }
-        .info-box { margin-top: 15px; padding: 12px; background: #eef7f2; border-left: 4px solid var(--cbus); border-radius: 4px; font-size: 13px; color: #333; line-height: 1.4; }
+        .info-box { margin-top: 15px; padding: 12px; background: #eef7eef2; border-left: 4px solid var(--cbus); border-radius: 4px; font-size: 13px; color: #333; line-height: 1.4; }
         #diagnostic-box { display: none; background: #1e1e1e; color: #00ff66; padding: 15px; border-radius: 8px; margin-top: 20px; font-family: monospace; font-size: 12px; max-height: 400px; overflow-y: auto; text-align: left; border: 1px solid #333; }
+        
+        /* Styles for Mode Selector and Data Panels */
+        .toggle-container { display: flex; gap: 10px; margin-bottom: 20px; }
+        .toggle-btn { flex: 1; padding: 12px; border: 1px solid #ddd; border-radius: 10px; font-weight: bold; cursor: pointer; background: #e0e0e0; color: #333; transition: all 0.2s ease; }
+        .toggle-btn.active { background: var(--cbus); color: white; border-color: var(--cbus); }
+        .import-panel { display: none; background: #fafafa; border: 1px solid #ddd; border-radius: 12px; padding: 18px; margin-bottom: 20px; }
+        .paste-area { width: 100%; height: 180px; padding: 10px; border: 1px solid #ccc; border-radius: 8px; box-sizing: border-box; font-family: monospace; font-size: 13px; resize: vertical; margin-top: 5px; }
     </style>
 </head>
 <body>
@@ -32,6 +40,23 @@
 <div class="card">
     <h2 style="color:var(--cbus); text-align:center; margin-top:0;">🏗️ Document Assistant</h2>
     
+    <!-- Mode Switcher -->
+    <div class="toggle-container">
+        <button id="mode-manual" class="toggle-btn active" onclick="switchInputMode('manual')">✍️ Manual Entry</button>
+        <button id="mode-import" class="toggle-btn" onclick="switchInputMode('import')">📋 Import Data</button>
+    </div>
+
+    <!-- Data Import Panel -->
+    <div id="import-panel" class="import-panel">
+        <label>Raw Extracted Text / Paste Area</label>
+        <textarea id="paste-box" class="paste-area" placeholder="Paste data directly from Salesforce or emails here..."></textarea>
+        
+        <!-- Action Buttons Moved Underneath the Paste Box -->
+        <button class="btn-run" style="margin-top: 15px; padding: 15px; font-size: 16px;" onclick="parsePastedText()">⚡ Parse and Populate Fields</button>
+        <button class="btn-clear" style="margin-top: 10px;" onclick="clearAllFields()">🧹 Clear All Fields</button>
+    </div>
+
+    <!-- Personal Details Grid -->
     <div class="grid">
         <div class="full"><label>Member Number</label><input type="text" id="m_no" autocomplete="off"></div>
         <div><label>Given Name(s)</label><input type="text" id="gn" autocomplete="off"></div>
@@ -76,6 +101,7 @@
         <div class="full"><label>Postal Postcode</label><input type="tel" id="postal_pc" autocomplete="off"></div>
     </div>
 
+    <!-- Selection Grid -->
     <div class="form-selector">
         <label style="font-size: 12px; color: #444; font-weight: bold;">Select Forms to Auto-Complete Simultaneously:</label>
         <div id="formList">
@@ -111,8 +137,8 @@
         </div>
     </div>
 
+    <!-- Generation Button Only at Card Bottom -->
     <button class="btn-run" onclick="runBatchProcessing()">🚀 Generate All Selected Forms</button>
-    <button class="btn-clear" onclick="clearAllFields()">🧹 Clear All Fields</button>
     <div id="status">Ready.</div>
     
     <!-- Diagnostics logger view -->
@@ -127,6 +153,194 @@
     const GITHUB_USERNAME = "your-money-your-future";
     const REPO_NAME = "united-docs-processor-";
     const BASE_DATA_URL = `https://raw.githubusercontent.com/${GITHUB_USERNAME}/${REPO_NAME}/main/forms/`;
+
+    // Toggle panel view helper
+    function switchInputMode(mode) {
+        const manualBtn = document.getElementById('mode-manual');
+        const importBtn = document.getElementById('mode-import');
+        const importPanel = document.getElementById('import-panel');
+        
+        if (mode === 'manual') {
+            manualBtn.classList.add('active');
+            importBtn.classList.remove('active');
+            importPanel.style.display = 'none';
+        } else {
+            importBtn.classList.add('active');
+            manualBtn.classList.remove('active');
+            importPanel.style.display = 'block';
+        }
+    }
+
+    // Resolves components of an Australian address block with flexible boundaries
+    function parseAddressBlock(blockText) {
+        if (!blockText) return null;
+        let streetAddr = "";
+        let suburb = "";
+        let state = "";
+        let postcode = "";
+
+        // Normalize spacing and convert newlines to inline spaces for matching
+        const normalizedBlock = blockText.replace(/\s+/g, ' ').trim();
+
+        // 1. Resolve State & Postcode
+        const statePostcodeMatch = normalizedBlock.match(/(QLD|NSW|VIC|WA|SA|TAS|ACT|NT)\s+(\d{4})/i);
+        if (statePostcodeMatch) {
+            state = statePostcodeMatch[1].toUpperCase();
+            postcode = statePostcodeMatch[2];
+        }
+
+        // 2. Resolve Suffix Location and segment street/suburb
+        // Suffix list matching is ordered by size to prioritize full designations over short codes
+        const suffixRegex = /(Road|Rd|Street|St|Avenue|Ave|Drive|Dr|Court|Ct|Place|Pl|Lane|Ln|Parade|Pde|Crescent|Cres|Way|Gr|Grove|Hwy|Highway)/i;
+        const suffixMatch = normalizedBlock.match(suffixRegex);
+        
+        if (suffixMatch) {
+            const suffixIndex = normalizedBlock.indexOf(suffixMatch[0]);
+            const endOfSuffix = suffixIndex + suffixMatch[0].length;
+            streetAddr = normalizedBlock.substring(0, endOfSuffix).trim();
+            
+            let rest = normalizedBlock.substring(endOfSuffix).trim();
+            if (state) {
+                const stateIndex = rest.toUpperCase().indexOf(state);
+                if (stateIndex !== -1) {
+                    suburb = rest.substring(0, stateIndex).trim();
+                } else {
+                    suburb = rest;
+                }
+            } else {
+                suburb = rest;
+            }
+        } else {
+            // General word segmentation fallback
+            const cleanBlock = normalizedBlock.replace(/(QLD|NSW|VIC|WA|SA|TAS|ACT|NT)\s+(\d{4})/i, "").trim();
+            const words = cleanBlock.split(/\s+/);
+            if (words.length > 2) {
+                suburb = words.slice(-2).join(" ");
+                streetAddr = words.slice(0, -2).join(" ");
+            } else {
+                streetAddr = cleanBlock;
+            }
+        }
+
+        return { 
+            streetAddr: streetAddr.trim(), 
+            suburb: suburb.trim(), 
+            state, 
+            postcode 
+        };
+    }
+
+    // Scans raw text input with compatibility for Salesforce newline pastes
+    function parsePastedText() {
+        const rawText = document.getElementById('paste-box').value || "";
+        if (!rawText.trim()) return;
+
+        // --- SECTION 1: TARGETED RULE MATCHING (Handles multi-line outputs) ---
+        
+        // 1. Account Name Split (Utilizes multi-line match rules)
+        const nameMatch = rawText.match(/Account\s*Name\s*(?:Miss|Mr|Mrs|Ms|Dr|Mdm)?\s*([\s\S]*?)\s*(?=Brand|Preferred|Account|Member|$)/i);
+        if (nameMatch) {
+            const fullName = nameMatch[1].replace(/\s+/g, ' ').trim();
+            const nameParts = fullName.split(/\s+/);
+            if (nameParts.length > 1) {
+                const familyName = nameParts.pop();
+                const givenNames = nameParts.join(" ");
+                document.getElementById('gn').value = givenNames;
+                document.getElementById('fn').value = familyName;
+            } else {
+                document.getElementById('gn').value = fullName;
+                document.getElementById('fn').value = "";
+            }
+        }
+
+        // 2. Member Account Number Match
+        const memberNoMatch = rawText.match(/Member\s*Account\s*Number\s*(\d+)/i);
+        if (memberNoMatch) {
+            document.getElementById('m_no').value = memberNoMatch[1].trim();
+        }
+
+        // 3. DOB / Birthdate Match (Standard Australian DD/MM/YYYY)
+        const birthdateMatch = rawText.match(/Birthdate\s*(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{4})/i);
+        if (birthdateMatch) {
+            const rawDob = birthdateMatch[1];
+            const parts = rawDob.split(/[\/\-\.]/);
+            if (parts.length === 3) {
+                const dObj = new Date(parts[2], parts[1] - 1, parts[0]);
+                if (dObj && !isNaN(dObj.getTime())) {
+                    const yyyy = dObj.getFullYear();
+                    const mm = String(dObj.getMonth() + 1).padStart(2, '0');
+                    const dd = String(dObj.getDate()).padStart(2, '0');
+                    document.getElementById('dob').value = `${yyyy}-${mm}-${dd}`;
+                }
+            }
+        }
+
+        // 4. Email Match (Constrained to domains to prevent swallowing trailing text like "Age")
+        const targetEmailMatch = rawText.match(/Email\s*([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.(?:com|net|org|gov|edu|info)(?:\.au)?)/i);
+        if (targetEmailMatch) {
+            document.getElementById('eml').value = targetEmailMatch[1].trim();
+        }
+
+        // 5. Mobile Match (Handles Australian standard and international formatting)
+        const targetMobileMatch = rawText.match(/Mobile\s*(\+?\d+)/i);
+        if (targetMobileMatch) {
+            let rawMob = targetMobileMatch[1].trim();
+            if (rawMob.startsWith('+61')) {
+                rawMob = '0' + rawMob.substring(3);
+            } else if (rawMob.startsWith('61')) {
+                rawMob = '0' + rawMob.substring(2);
+            }
+            document.getElementById('mob').value = rawMob;
+        }
+
+        // 6. Address Block Segment Matching (Uses multi-line capturing)
+        // Registered Address Block Segment
+        const regAddrBlockMatch = rawText.match(/Registered\s*Address\s*([\s\S]*?)(?=Postal\s*Address|AUSTRALIA|$)/i);
+        if (regAddrBlockMatch) {
+            const parsedReg = parseAddressBlock(regAddrBlockMatch[1].trim());
+            if (parsedReg) {
+                document.getElementById('addr').value = parsedReg.streetAddr;
+                document.getElementById('sub').value = parsedReg.suburb;
+                document.getElementById('st').value = parsedReg.state;
+                document.getElementById('pc').value = parsedReg.postcode;
+            }
+        }
+
+        // Postal Address Block Segment
+        const postAddrBlockMatch = rawText.match(/Postal\s*Address\s*([\s\S]*?)(?=AUSTRALIA|$)/i);
+        if (postAddrBlockMatch) {
+            const parsedPost = parseAddressBlock(postAddrBlockMatch[1].trim());
+            if (parsedPost) {
+                document.getElementById('postal_addr').value = parsedPost.streetAddr;
+                document.getElementById('postal_sub').value = parsedPost.suburb;
+                document.getElementById('postal_st').value = parsedPost.state;
+                document.getElementById('postal_pc').value = parsedPost.postcode;
+            }
+        }
+
+        // --- SECTION 2: GENERIC FALLBACK PATTERN MATCHING ---
+        // (Applies only if fields were missed by targeted matching above)
+        
+        if (!document.getElementById('eml').value) {
+            const emailMatch = rawText.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+            if (emailMatch) document.getElementById('eml').value = emailMatch[0].trim();
+        }
+
+        if (!document.getElementById('mob').value) {
+            const mobMatch = rawText.match(/(?:\+?61\s?|0)4\s?\d{2}\s?\d{3}\s?\d{3}/) || rawText.match(/\b04\d{8}\b/);
+            if (mobMatch) document.getElementById('mob').value = mobMatch[0].replace(/[^0-9]/g, '');
+        }
+
+        if (!document.getElementById('tel_home').value) {
+            const landlineMatch = rawText.match(/(?:\+?61\s?|0)[2378]\s?\d{4}\s?\d{4}/) || rawText.match(/\b0[2378]\d{8}\b/);
+            if (landlineMatch) document.getElementById('tel_home').value = landlineMatch[0].replace(/[^0-9]/g, '');
+        }
+
+        if (!document.getElementById('tfn').value) {
+            const cleanTfn = rawText.match(/\b\d{3}\s?\d{3}\s?\d{3}\b/) || rawText.match(/\b\d{9}\b/);
+            if (cleanTfn) document.getElementById('tfn').value = cleanTfn[0].replace(/[^0-9]/g, '');
+        }
+    }
 
     function clearAllFields() {
         const fieldsToClear = ['m_no', 'gn', 'fn', 'dob', 'tfn', 'mob', 'tel_home', 'eml', 'addr', 'sub', 'pc', 'postal_addr', 'postal_sub', 'postal_pc'];
@@ -150,6 +364,10 @@
             status.innerText = "Ready.";
         }
         
+        const pasteBox = document.getElementById('paste-box');
+        if (pasteBox) pasteBox.value = "";
+        
+        const diagBox = document.getElementById('diagnostic-box');
         if (diagBox) {
             diagBox.style.display = "none";
             diagBox.innerHTML = "";
@@ -513,7 +731,7 @@
                     'Telephone home1': homePrefix,
                     'Telephone home2': homeSuffix,
                     'mobile1': mob,
-                    'TFN': tfn.substring(0, 3), // Fixed segmented block conflict on Box 1
+                    'TFN': tfn.substring(0, 3), 
                     'TFN1': tfn.substring(3, 6),
                     'TFN2': tfn.substring(6, 9),
                     'Declaration Day': curD,
@@ -529,7 +747,7 @@
                     'Date of birth month': m,
                     'Date of birth year': y,
                     'TFN': tfn,
-                    'TFN1': tfn.substring(0, 3), // Segmented TFN mapped correctly
+                    'TFN1': tfn.substring(0, 3), 
                     'TFN2': tfn.substring(3, 6),
                     'TFN3': tfn.substring(6, 9),
                     'New Zealand Phone1': mob,
@@ -551,10 +769,9 @@
                     'Provide your address': `${addr}, ${sub}`.trim(),
                     'Provide your state or territory': `${st} ${pc}`.trim(),
                     
-                    // The field names in this PDF are misaligned with their visual labels:
-                    'Declaration day': `${sub}, ${st}`.trim(),       // Field is physically after "Declared at" (Place)
-                    'Declaration month': curDayWithSuffix,          // Field is physically after "on" (Day, e.g. "24th")
-                    'Declaration year': curMonthAndYear             // Field is physically after "of" (Month & Year, e.g. "June 2026")
+                    'Declaration day': `${sub}, ${st}`.trim(),       
+                    'Declaration month': curDayWithSuffix,          
+                    'Declaration year': curMonthAndYear             
                 },
 
                 // 9. Apply for Income Protection Cover
@@ -564,7 +781,7 @@
                     'Family name': fn,
                     'Date of Birth DD': d,
                     'Date of Birth MM': m,
-                    'Date of Birth YY': y, // Fixed birth year (was curYY)
+                    'Date of Birth YY': y, 
                     'Street name': addr,
                     'Suburb': sub,
                     'State': st,
@@ -577,7 +794,7 @@
                     'Home phone': homeArea,
                     'Home phone 1': homePrefix,
                     'Home phone 2': homeSuffix,
-                    'Mobile': mobArea,     // Segmented mobile number mapping
+                    'Mobile': mobArea,     
                     'Mobile2': mobPrefix,
                     'Mobile3': mobSuffix,
                     'Declaration DD': curD,
@@ -635,7 +852,7 @@
                     'mobile1': mob,
                     'decDD': curD,
                     'decMM': curM,
-                    'decYYYY': curYY // Corrected character-limit restriction to 2 digits
+                    'decYYYY': curYY 
                 },
 
                 // 12. Withdraw Your Super
@@ -854,7 +1071,7 @@
                     'Postcode 2': postalPc,
                     'Posal - Suburb': postalSub,
                     'Posal - State': postalSt,
-                    'Posal - Postcode': postalPc,
+                    'Postcode - Posal': postalPc,
                     'Email address': eml,
                     'Email Address': eml,
                     'Telephone home': homeArea,
@@ -966,7 +1183,7 @@
                     'mobile1': mob,
                     'Step 6 - DD': curD,
                     'Step 6 - MM': curM,
-                    'Step 6 - YYYY': curYY // Adjusted character-limit restriction to 2 digits ("26")
+                    'Step 6 - YYYY': curYY 
                 },
 
                 // 23. SIS Binding Death Benefit Nomination
@@ -1027,18 +1244,15 @@
                     '8050898-TFN2': tfn.substring(3, 6),
                     '8050898-TFN3': tfn.substring(6, 9),
                     
-                    // Primary Join Form Declaration Dates
                     '8050902-Sign_Date_Day': curD,
                     '8050902-Sign_Date_Month': curM,
                     '8050902-Sign_Date_Year': curYY,
                     
-                    // Standalone Form Declaration Dates
                     '12 form 1 sign DD': curD,
                     '12 form 1 sign MM': curM,
                     '12 form 1 sign YY': curYY,
                     'Cbus member number step 5': mNo,
                     
-                    // Standalone Nested BDN Form Fields
                     'Cbus super member number': mNo,
                     'Given names': gn,
                     'Family name': fn,
@@ -1054,7 +1268,6 @@
                     'Telephone home2': homeSuffix,
                     'mobile': mob,
                     
-                    // Nested BDN Declaration Dates (Day, Month, Year)
                     'Sign day binding': curD,
                     'Sign month binding': curM,
                     'Sign year binding': curYY,
@@ -1062,7 +1275,6 @@
                     'Witness 1 date month': curM,
                     'Witness 1 date year': curYY,
                     'Witness 2 date day': curD,
-                    'Witness 2 date month': curM,
                     'Witness 2 date year': curYY
                 },
 
@@ -1090,18 +1302,15 @@
                     '8050898-TFN2': tfn.substring(3, 6),
                     '8050898-TFN3': tfn.substring(6, 9),
                     
-                    // Primary Join Form Declaration Dates
                     '8050902-Sign_Date_Day': curD,
                     '8050902-Sign_Date_Month': curM,
                     '8050902-Sign_Date_Year': curYY,
                     
-                    // Standalone Form Declaration Dates
                     '12 form 1 sign DD': curD,
                     '12 form 1 sign MM': curM,
                     '12 form 1 sign YY': curYY,
                     'Cbus member number step 5': mNo,
                     
-                    // Standalone Nested BDN Form Fields
                     'Cbus super member number': mNo,
                     'Given names': gn,
                     'Family name': fn,
@@ -1117,7 +1326,6 @@
                     'Telephone home2': homeSuffix,
                     'mobile': mob,
                     
-                    // Nested BDN Declaration Dates (Day, Month, Year)
                     'Sign day binding': curD,
                     'Sign month binding': curM,
                     'Sign year binding': curYY,
@@ -1125,7 +1333,6 @@
                     'Witness 1 date month': curM,
                     'Witness 1 date year': curYY,
                     'Witness 2 date day': curD,
-                    'Witness 2 date month': curM,
                     'Witness 2 date year': curYY
                 },
 
@@ -1152,7 +1359,7 @@
                     'Mobile number 1': mob,
                     'S8 DD': curD,
                     'S8 MM': curM,
-                    'S8 yyyy': curYY // Adjusted character-limit restriction to 2 digits ("26")
+                    'S8 yyyy': curYY 
                 },
 
                 // 27. Income Stream Withdrawal or Rollover
@@ -1178,7 +1385,7 @@
                     'Mobile number 1': mob,
                     'S8 DD': curD,
                     'S8 MM': curM,
-                    'S8 yyyy': curYY // Adjusted character-limit restriction to 2 digits ("26")
+                    'S8 yyyy': curYY 
                 }
             };
 

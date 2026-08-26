@@ -153,7 +153,38 @@
     const GITHUB_USERNAME = "your-money-your-future";
     const REPO_NAME = "united-docs-processor-";
     const BASE_DATA_URL = `https://raw.githubusercontent.com/${GITHUB_USERNAME}/${REPO_NAME}/main/forms/`;
+    
+    // Friendly document titles used in generated filenames
+    const documentTitles = {
+        'Application-to-Transfer-Existing-Insurance-cover-transfer-form.pdf': 'Transfer Existing Insurance',
+        'Change-Details-Form.pdf': 'Change of Details',
+        'Change-Occupation-Form.pdf': 'Change Occupation Category',
+        'App-Increase-Cover-Living-Events.pdf': 'Life Event Insurance Change',
+        'Application-Apply-IP-Cover-Industry.pdf': 'Apply for Income Protection Cover',
+        'Salary-Sacrifice-Form.pdf': 'Salary Sacrifice Authority',
+        'Cbus-how-to-claim-tax-deduction-super-contributions.pdf': 'Notice of Intent to Claim Tax Deduction',
+        'Kiwi-Saver-Form.pdf': 'KiwiSaver Transfer Form',
+        'Compassionate-Grounds-form.pdf': 'Compassionate Grounds Withdrawal',
+        'General-Statutory-Declaration.pdf': 'General Statutory Declaration',
+        'join-industry-form.pdf': 'Join Cbus Industry Super',
+        'Change-Insurance-Form-Industry-Super.pdf': 'Change My Insurance (Industry Super)',
+        'Binding-Death-Benefit-Nomination-Form.pdf': 'Binding Death Benefit Nomination',
+        'Combine-Form.pdf': 'Combine Your Super into Cbus',
+        'super-withdrawal-form.pdf': 'Withdraw Your Super',
+        'I-want-my-super-paid-into-Cbus.pdf': 'Pay My Super Into Cbus (Employer Choice)',
+        'corporate-super-set-up.pdf': 'Set Up Corporate Super Account',
+        'join-sole-trader.pdf': 'Join Cbus Sole Trader Super',
 
+        'ttr-sis-pds.pdf': 'Transition to Retirement PDS',
+        'cbus-super-income-stream-join-form.pdf': 'Join Cbus Super Income Stream',
+        'Change-Income-Stream-Details-Form.pdf': 'Change Your Income Stream Details',
+        'fr-sis-pds.pdf': 'Fully Retired PDS',
+        'SIS-Binding-Death-Nomination-Form.pdf': 'SIS Binding Death Benefit Nomination',
+        'SIS-Switching-Form.pdf': 'Investment Choice Form (Income Stream)',
+        'SIS-Withdrawal-Form.pdf': 'Income Stream Withdrawal or Rollover',
+        'Third-Party-Authority-Form.pdf': 'Third Party Authority'
+    };
+    
     // Toggle panel view helper
     function switchInputMode(mode) {
         const manualBtn = document.getElementById('mode-manual');
@@ -1452,13 +1483,49 @@
                 const blob = new Blob([pdfBytes], { type: "application/pdf" });
                 const localUrl = URL.createObjectURL(blob);
 
-                const a = document.createElement('a');
-                a.href = localUrl;
-                a.download = `${fullNamePrefix}_${formFileName}`;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                URL.revokeObjectURL(localUrl);
+                // Get the friendly document title
+const documentTitle =
+    documentTitles[formFileName] ||
+    formFileName.replace(/\.pdf$/i, '');
+
+// Build a clean filename for later automation
+// Example:
+// 12345678 - John Smith - Join Cbus Super Income Stream.pdf
+
+const filenameParts = [];
+
+// Member number first
+if (mNo) {
+    filenameParts.push(mNo);
+}
+
+// Member name
+if (fullNamePrefix && fullNamePrefix !== 'Member_Form') {
+    filenameParts.push(fullNamePrefix);
+} else {
+    filenameParts.push('Member');
+}
+
+// Friendly document title
+filenameParts.push(documentTitle);
+
+// Remove characters that Windows does not allow in filenames
+const safeFileName =
+    filenameParts
+        .join(' - ')
+        .replace(/[<>:"/\\|?*]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim() + '.pdf';
+
+const a = document.createElement('a');
+a.href = localUrl;
+a.download = safeFileName;
+
+document.body.appendChild(a);
+a.click();
+document.body.removeChild(a);
+
+URL.revokeObjectURL(localUrl);
             }
 
             status.style.color = "var(--cbus)";

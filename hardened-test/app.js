@@ -50,7 +50,7 @@ const BASE_DATA_URL = "../forms/"; // Same-origin only: blocked from arbitrary e
 
     // ---------- Salesforce paste parser (privacy-safe: no network calls) ----------
     // Parser revision: v4-collapsed-address-boundary
-    // PDF checkbox revision: v6-direct-parent-and-widget-state
+    // PDF checkbox revision: v7-acrobat-disable-needappearances
     const SALESFORCE_FIELD_BOUNDARY = [
         'Account Name', 'Preferred Name', 'Member Segment', 'Brand Identifier', 'Brand',
         'Account Owner', 'Member Account Number', 'Member Number', 'Birthdate', 'Age',
@@ -1416,7 +1416,10 @@ const BASE_DATA_URL = "../forms/"; // Same-origin only: blocked from arbitrary e
                 const form = pdfDoc.getForm();
                 
                 try { if (form.hasXFA()) form.deleteXFA(); } catch(e) {}
-                try { if (form.acroForm) form.acroForm.dict.set(PDFLib.PDFName.of('NeedAppearances'), PDFLib.PDFBool.True); } catch(e) {}
+                // Keep Acrobat from regenerating the unusual shared Title/Gender checkbox
+                // appearances. Chrome will happily render the /AS state, while Acrobat can
+                // erase it when NeedAppearances is true.
+                try { if (form.acroForm) form.acroForm.dict.set(PDFLib.PDFName.of('NeedAppearances'), PDFLib.PDFBool.False); } catch(e) {}
 
                 const fields = form.getFields();
 
@@ -1469,6 +1472,11 @@ const BASE_DATA_URL = "../forms/"; // Same-origin only: blocked from arbitrary e
                     if (genericName === getCleanKey('Title') && title) selectWidgetChoice(field, title);
                     if (genericName === getCleanKey('Gender') && gender) selectWidgetChoice(field, gender);
                 }
+
+                // Final compatibility safeguard for Adobe Acrobat: use the appearance
+                // streams/states we have explicitly set instead of asking the viewer to
+                // synthesize new ones.
+                try { if (form.acroForm) form.acroForm.dict.set(PDFLib.PDFName.of('NeedAppearances'), PDFLib.PDFBool.False); } catch(e) {}
 
                 const pdfBytes = await pdfDoc.save();
                 const blob = new Blob([pdfBytes], { type: "application/pdf" });

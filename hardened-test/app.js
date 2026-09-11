@@ -1,4 +1,4 @@
-const BASE_DATA_URL = "./forms/"; // Same-origin only: blocked from arbitrary external fetches by CSP.
+const BASE_DATA_URL = "../forms/"; // Same-origin only: blocked from arbitrary external fetches by CSP.
     
     // Friendly document titles used in generated filenames
     const documentTitles = {

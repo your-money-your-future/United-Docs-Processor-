@@ -1502,5 +1502,6 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('mode-import')?.addEventListener('click', () => switchInputMode('import'));
     document.getElementById('parse-data')?.addEventListener('click', parsePastedText);
     document.getElementById('clear-fields')?.addEventListener('click', clearAllFields);
+    document.getElementById('clear-fields-bottom')?.addEventListener('click', clearAllFields);
     document.getElementById('generate-forms')?.addEventListener('click', runBatchProcessing);
 });

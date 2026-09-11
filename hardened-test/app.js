@@ -50,6 +50,7 @@ const BASE_DATA_URL = "../forms/"; // Same-origin only: blocked from arbitrary e
 
     // ---------- Salesforce paste parser (privacy-safe: no network calls) ----------
     // Parser revision: v4-collapsed-address-boundary
+    // PDF checkbox revision: v5-apply-title-gender-after-appearance-refresh
     const SALESFORCE_FIELD_BOUNDARY = [
         'Account Name', 'Preferred Name', 'Member Segment', 'Brand Identifier', 'Brand',
         'Account Owner', 'Member Account Number', 'Member Number', 'Birthdate', 'Age',
@@ -1390,13 +1391,6 @@ const BASE_DATA_URL = "../forms/"; // Same-origin only: blocked from arbitrary e
 
                 const fields = form.getFields();
 
-                // Generic Cbus Title/Gender support. Forms without these fields are simply skipped.
-                for (const field of fields) {
-                    const genericName = getCleanKey(field.getName());
-                    if (genericName === getCleanKey('Title') && title) selectWidgetChoice(field, title);
-                    if (genericName === getCleanKey('Gender') && gender) selectWidgetChoice(field, gender);
-                }
-
                 const activeMap = formSpecificMaps[formFileName] || {};
                 const activeMapClean = {};
                 for (const key in activeMap) {
@@ -1436,6 +1430,16 @@ const BASE_DATA_URL = "../forms/"; // Same-origin only: blocked from arbitrary e
                 });
 
                 try { form.updateFieldAppearances(); } catch(e) {}
+
+                // IMPORTANT: Cbus Title/Gender are multi-widget checkbox groups sharing
+                // one field name. pdf-lib's global appearance refresh resets these groups
+                // to the first widget (Mr/Male). Apply the chosen widget state AFTER the
+                // appearance refresh so Miss/Mrs/Ms/Other and Female remain selected.
+                for (const field of fields) {
+                    const genericName = getCleanKey(field.getName());
+                    if (genericName === getCleanKey('Title') && title) selectWidgetChoice(field, title);
+                    if (genericName === getCleanKey('Gender') && gender) selectWidgetChoice(field, gender);
+                }
 
                 const pdfBytes = await pdfDoc.save();
                 const blob = new Blob([pdfBytes], { type: "application/pdf" });

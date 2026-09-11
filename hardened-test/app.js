@@ -50,7 +50,7 @@ const BASE_DATA_URL = "../forms/"; // Same-origin only: blocked from arbitrary e
 
     // ---------- Salesforce paste parser (privacy-safe: no network calls) ----------
     // Parser revision: v4-collapsed-address-boundary
-    // PDF checkbox revision: v5-apply-title-gender-after-appearance-refresh
+    // PDF checkbox revision: v6-direct-parent-and-widget-state
     const SALESFORCE_FIELD_BOUNDARY = [
         'Account Name', 'Preferred Name', 'Member Segment', 'Brand Identifier', 'Brand',
         'Account Owner', 'Member Account Number', 'Member Number', 'Birthdate', 'Age',
@@ -332,22 +332,51 @@ const BASE_DATA_URL = "../forms/"; // Same-origin only: blocked from arbitrary e
     // so select the matching widget export value explicitly (e.g. Mr, Female).
     function selectWidgetChoice(field, wantedValue) {
         if (!field || !wantedValue || !(field instanceof PDFLib.PDFCheckBox)) return false;
-        const wanted = String(wantedValue).toLowerCase();
+
+        const wanted = String(wantedValue).trim().toLowerCase();
+
         try {
             const widgets = field.acroField.getWidgets();
             let selectedName = null;
-            widgets.forEach(widget => {
+
+            // Find the widget whose actual PDF appearance/export value is the requested
+            // choice (Mr/Mrs/Miss/Ms/Other or Male/Female).
+            for (const widget of widgets) {
                 const onValue = widget.getOnValue();
                 const onText = onValue ? onValue.decodeText() : '';
-                if (onText.toLowerCase() === wanted) {
+
+                if (onText.trim().toLowerCase() === wanted) {
                     selectedName = onValue;
-                    widget.setAppearanceState(onValue);
-                } else {
-                    widget.setAppearanceState(PDFLib.PDFName.of('Off'));
+                    break;
                 }
-            });
-            if (!selectedName) return false;
-            field.acroField.setValue(selectedName);
+            }
+
+            if (!selectedName) {
+                console.warn(`No PDF widget value matched "${wantedValue}" for "${field.getName()}"`);
+                return false;
+            }
+
+            const offName = PDFLib.PDFName.of('Off');
+            const asKey = PDFLib.PDFName.of('AS');
+            const valueKey = PDFLib.PDFName.of('V');
+
+            // Set every child annotation explicitly.  This bypasses pdf-lib's normal
+            // single-checkbox assumptions, which do not reliably preserve a choice when
+            // multiple checkbox widgets share one parent field.
+            for (const widget of widgets) {
+                const onValue = widget.getOnValue();
+                const onText = onValue ? onValue.decodeText() : '';
+                const state = onText.trim().toLowerCase() === wanted ? onValue : offName;
+
+                // High-level setter plus direct annotation dictionary assignment.
+                try { widget.setAppearanceState(state); } catch (_) {}
+                try { widget.dict.set(asKey, state); } catch (_) {}
+            }
+
+            // Set the parent field value directly as well as through pdf-lib.
+            try { field.acroField.setValue(selectedName); } catch (_) {}
+            try { field.acroField.dict.set(valueKey, selectedName); } catch (_) {}
+
             return true;
         } catch (e) {
             console.warn(`Could not select ${wantedValue} in ${field.getName()}`, e);

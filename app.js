@@ -20,6 +20,8 @@ const BASE_DATA_URL = "./forms/"; // Same-origin only: blocked from arbitrary ex
         'I-want-my-super-paid-into-Cbus.pdf': 'Pay My Super Into Cbus (Employer Choice)',
         'corporate-super-set-up.pdf': 'Set Up Corporate Super Account',
         'join-sole-trader.pdf': 'Join Cbus Sole Trader Super',
+        'Green-ID-form.pdf': 'Proving Your Identity Electronically',
+        'Cbus-TPD-Payment-Form.pdf': 'Total and Permanent Disablement Payment',
 
         'ttr-sis-pds.pdf': 'Transition to Retirement PDS',
         'cbus-super-income-stream-join-form.pdf': 'Join Cbus Super Income Stream',
@@ -448,6 +450,9 @@ const BASE_DATA_URL = "./forms/"; // Same-origin only: blocked from arbitrary ex
             if (!postalSt) {
                 postalSt = st;
             }
+            const postalFullAddress = [postalAddr, postalSub, postalSt, postalPc]
+                .filter(Boolean)
+                .join(' ');
 
             // Segment Home Phone into: Area Code (2 digits), Prefix (4 digits), Suffix (4 digits)
             const cleanHome = telHome.replace(/[^0-9]/g, '');
@@ -1398,6 +1403,52 @@ const BASE_DATA_URL = "./forms/"; // Same-origin only: blocked from arbitrary ex
                     'S8 DD': curD,
                     'S8 MM': curM,
                     'S8 yyyy': curYY 
+                },
+
+                // 28. Proving Your Identity Electronically
+                'Green-ID-form.pdf': {
+                    'Cbus member number': mNo,
+                    'Cbus income stream number': mNo,
+                    'Date of birth day': d,
+                    'Date of birth month': m,
+                    'Date of birth year': y,
+                    'First names': gn,
+                    'Last name': fn,
+                    'Street Number': addr,
+                    'Suburb/town': sub,
+                    'State': st,
+                    'Postcode': pc,
+                    'Postal Address if different': postalAddr,
+                    'Suburb/town 2': postalSub,
+                    'State 2': postalSt,
+                    'Postcode 2': postalPc,
+                    'Email address': eml,
+                    'Telephone home': homeArea,
+                    'Telephone home1': homePrefix,
+                    'Telephone home2': homeSuffix,
+                    'Telephone mobile': mob,
+                    '12 form 1 sign DD': curD,
+                    '12 form 1 sign MM': curM,
+                    '12 form 1 sign YY': curYY
+                },
+
+                // 29. Total and Permanent Disablement Payment
+                'Cbus-TPD-Payment-Form.pdf': {
+                    'Join Cbus Member Number': mNo,
+                    'Given name(s)': gn,
+                    'Family name': fn,
+                    'TFN1': tfn.substring(0, 3),
+                    'TFN2': tfn.substring(3, 6),
+                    'TFN3': tfn.substring(6, 9),
+                    'Street number': resNum,
+                    'Street name': resName,
+                    'Suburb': sub,
+                    'State': st,
+                    'Postcode': pc,
+                    'Postal address': postalFullAddress,
+                    'Signature DD': curD,
+                    'Signature MM': curM,
+                    'Signature yyyy': curYY
                 }
             };
 

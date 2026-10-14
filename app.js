@@ -15,6 +15,7 @@ const BASE_DATA_URL = "./forms/"; // Same-origin only: blocked from arbitrary ex
         'join-industry-form.pdf': 'Join Cbus Industry Super',
         'Change-Insurance-Form-Industry-Super.pdf': 'Change My Insurance (Industry Super)',
         'Binding-Death-Benefit-Nomination-Form.pdf': 'Binding Death Benefit Nomination',
+        'STAFF-Binding-Death-Nomination-Form.pdf': 'Staff Binding Death Benefit Nomination',
         'Combine-Form.pdf': 'Combine Your Super into Cbus',
         'super-withdrawal-form.pdf': 'Withdraw Your Super',
         'I-want-my-super-paid-into-Cbus.pdf': 'Pay My Super Into Cbus (Employer Choice)',
@@ -555,6 +556,29 @@ const BASE_DATA_URL = "./forms/"; // Same-origin only: blocked from arbitrary ex
                     '4 Step 3 date': curD,
                     '4 Step 3 date MM': curM,
                     '4 Step 3 date YY': curYY
+                },
+
+                // Staff-assisted binding death benefit nomination
+                'STAFF-Binding-Death-Nomination-Form.pdf': {
+                    'Cbus member number': mNo,
+                    'Given names': gn,
+                    'Family name': fn,
+                    'Telephone home': homeArea,
+                    'Telephone home1': homePrefix,
+                    'Telephone home2': homeSuffix,
+                    'mobile': mob,
+                    'Date of birth day': d,
+                    'Date of birth month': m,
+                    'Date of birth year': y,
+                    'Street Name': addr,
+                    'Suburb/town': sub,
+                    'State': st,
+                    'Postcode': pc,
+                    'Email address': eml,
+
+                    'Sign day binding': curD,
+                    'Sign month binding': curM,
+                    'Sign year binding': curYY
                 },
 
                 // 2. Salary Sacrifice Form

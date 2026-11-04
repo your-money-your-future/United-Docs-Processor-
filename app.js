@@ -525,8 +525,9 @@ const BASE_DATA_URL = "./forms/"; // Same-origin only: blocked from arbitrary ex
                 return String(str).toLowerCase().replace(/[^a-z0-9]/g, '');
             };
 
-            // Container for strict, form-isolated exact mappings
-            const formSpecificMaps = {
+            // Single authoritative registry for strict, form-isolated exact mappings.
+            // Keep each PDF filename here once; freezing prevents accidental runtime changes.
+            const formSpecificMaps = Object.freeze({
                 // 1. Binding Death Benefit Nomination (Accumulation)
                 'Binding-Death-Benefit-Nomination-Form.pdf': {
                     'Cbus member number': mNo,
@@ -1216,29 +1217,6 @@ const BASE_DATA_URL = "./forms/"; // Same-origin only: blocked from arbitrary ex
                     'Step 6 - YYYY': curYY 
                 },
 
-                // 23. SIS Binding Death Benefit Nomination (Income Stream, 10-26 ISS18)
-                'SIS-Binding-Death-Nomination-Form.pdf': {
-                    'Cbus member number': mNo,
-                    'Given names': gn,
-                    'Family name': fn,
-                    'Telephone home': homeArea,
-                    'Telephone home1': homePrefix,
-                    'Telephone home2': homeSuffix,
-                    'mobile': mob,
-                    'Date of birth day': d,
-                    'Date of birth month': m,
-                    'Date of birth year': y,
-                    'Street Name': addr,
-                    'Suburb/town': sub,
-                    'State': st,
-                    'Postcode': pc,
-                    'Email address': eml,
-
-                    'Sign day binding': curD,
-                    'Sign month binding': curM,
-                    'Sign year binding': curYY
-                },
-
                 // 24. Transition to Retirement PDS
                 'ttr-sis-pds.pdf': {
                     '8050898-Given_Names': gn,
@@ -1452,7 +1430,7 @@ const BASE_DATA_URL = "./forms/"; // Same-origin only: blocked from arbitrary ex
                     'Signature MM': curM,
                     'Signature yyyy': curYY
                 }
-            };
+            });
 
             for (const item of selected) {
                 const formFileName = item.value;

@@ -391,6 +391,13 @@ const BASE_DATA_URL = "./forms/"; // Same-origin only: blocked from arbitrary ex
         }
     }
 
+    function formatPdfTextValue(fieldName, value) {
+        const text = String(value);
+        const isEmailField = /email/i.test(String(fieldName));
+        const looksLikeEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(text.trim());
+        return isEmailField || looksLikeEmail ? text : text.toUpperCase();
+    }
+
     // Cbus uses one PDF button field with multiple widgets for Title/Gender.
     // pdf-lib's ordinary PDFCheckBox.check() only targets the field's default on-value,
     // so select the matching widget export value explicitly (e.g. Mr, Female).
@@ -1551,7 +1558,7 @@ const BASE_DATA_URL = "./forms/"; // Same-origin only: blocked from arbitrary ex
                             if (isTextField) {
                                 try { if (field.isRichFormatted()) field.disableRichFormatting(); } catch(e) {}
                                 try { field.setFontSize(10); } catch(e) {}
-                                field.setText(String(targetValue));
+                                field.setText(formatPdfTextValue(fieldName, targetValue));
                             } else if (isCheckBox) {
                                 if (targetValue === true || targetValue === "checked" || targetValue === "On" || targetValue === "Yes") {
                                     field.check();

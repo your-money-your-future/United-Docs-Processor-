@@ -33,7 +33,22 @@ const BASE_DATA_URL = "./forms/"; // Same-origin only: blocked from arbitrary ex
         'SIS-Withdrawal-Form.pdf': 'Income Stream Withdrawal or Rollover',
         'Third-Party-Authority-Form.pdf': 'Third Party Authority'
     };
-    
+
+    const TRANSFER_FUND_DIRECTORY = Object.freeze([
+        { id: 'australiansuper', name: 'AustralianSuper', abn: '65 714 394 898', phone: '1300 300 273', usi: 'STA0100AU' },
+        { id: 'art-super-savings', label: 'Australian Retirement Trust (USI ending 003)', name: 'Australian Retirement Trust', abn: '60 905 115 063', phone: '13 11 84', usi: '60905115063003' },
+        { id: 'art-qsuper-general', label: 'ART/QSuper General (USI ending 001)', name: 'ART/QSuper General', abn: '60 905 115 063', phone: '1300 360 750', usi: '60905115063001' },
+        { id: 'art-qsuper-default', label: 'ART/QSuper Government/Default Employer (USI ending 002)', name: 'ART/QSuper Government/Default Employer', abn: '60 905 115 063', phone: '1300 360 750', usi: '60905115063002' },
+        { id: 'hostplus', name: 'Hostplus', abn: '68 657 495 890', phone: '1300 467 875', usi: 'HOS0100AU' },
+        { id: 'rest', name: 'Rest', abn: '62 653 671 394', phone: '1300 300 778', usi: 'RES0103AU' },
+        { id: 'hesta', name: 'HESTA', abn: '64 971 749 321', phone: '1800 813 327', usi: 'HST0100AU' },
+        { id: 'aware', name: 'Aware Super', abn: '53 226 460 365', phone: '1300 650 873', usi: '53226460365001' },
+        { id: 'unisuper', name: 'UniSuper', abn: '91 385 943 850', phone: '1800 331 685', usi: '91385943850001' },
+        { id: 'brighter', name: 'Brighter Super', abn: '23 053 121 564', phone: '1800 444 396', usi: 'QLG0001AU' },
+        { id: 'bussq', name: 'BUSSQ Super', abn: '85 571 332 201', phone: '1800 692 877', usi: 'BUS0002AU' },
+        { id: 'hub24', name: 'HUB24 Super Fund', abn: '60 910 190 523', phone: '1300 854 994', usi: '60910190523001' }
+    ]);
+
     // Toggle panel view helper
     function switchInputMode(mode) {
         const manualBtn = document.getElementById('mode-manual');
@@ -298,6 +313,47 @@ const BASE_DATA_URL = "./forms/"; // Same-origin only: blocked from arbitrary ex
         status.innerText = `Parsed ${found.length} fields${warnings.length ? ' — ' + warnings.join('; ') : '. Please review before generating.'}`;
     }
 
+
+    function setTransferFundPanelVisibility() {
+        const panel = document.getElementById('transfer-fund-panel');
+        const combineSelected = Boolean(document.querySelector('#formList input[value="Combine-Form.pdf"]:checked'));
+        if (panel) panel.hidden = !combineSelected;
+    }
+
+    function populateTransferFundDetails(index) {
+        const selector = document.getElementById(`transfer-fund-select-${index}`);
+        const fund = TRANSFER_FUND_DIRECTORY.find(candidate => candidate.id === selector?.value);
+        const values = fund || { name: '', abn: '', phone: '', usi: '' };
+        ['name', 'abn', 'phone', 'usi'].forEach(key => {
+            const input = document.getElementById(`transfer-fund-${key}-${index}`);
+            if (input) input.value = values[key] || '';
+        });
+        if (selector?.value === 'manual') document.getElementById(`transfer-fund-name-${index}`)?.focus();
+    }
+
+    function initialiseTransferFundPanel() {
+        for (let index = 1; index <= 3; index += 1) {
+            const selector = document.getElementById(`transfer-fund-select-${index}`);
+            if (!selector) continue;
+            selector.replaceChildren(new Option('Select a transferring fund', ''));
+            TRANSFER_FUND_DIRECTORY.forEach(fund => selector.add(new Option(fund.label || fund.name, fund.id)));
+            selector.add(new Option('Other fund / enter manually', 'manual'));
+            selector.addEventListener('change', () => populateTransferFundDetails(index));
+        }
+        document.querySelector('#formList input[value="Combine-Form.pdf"]')?.addEventListener('change', setTransferFundPanelVisibility);
+        setTransferFundPanelVisibility();
+    }
+
+    function readTransferFundDetails() {
+        return [1, 2, 3].map(index => ({
+            name: (document.getElementById(`transfer-fund-name-${index}`)?.value || '').trim(),
+            account: (document.getElementById(`transfer-fund-account-${index}`)?.value || '').trim(),
+            phone: (document.getElementById(`transfer-fund-phone-${index}`)?.value || '').trim(),
+            abn: (document.getElementById(`transfer-fund-abn-${index}`)?.value || '').trim(),
+            usi: (document.getElementById(`transfer-fund-usi-${index}`)?.value || '').trim()
+        }));
+    }
+
     function clearAllFields() {
         const fieldsToClear = ['m_no', 'title', 'gender', 'gn', 'fn', 'dob', 'tfn', 'mob', 'tel_home', 'eml', 'addr', 'sub', 'pc', 'postal_addr', 'postal_sub', 'postal_pc'];
         fieldsToClear.forEach(id => {
@@ -314,6 +370,11 @@ const BASE_DATA_URL = "./forms/"; // Same-origin only: blocked from arbitrary ex
         const checkboxes = document.querySelectorAll('#formList input[type="checkbox"]');
         checkboxes.forEach(cb => cb.checked = false);
         
+        document.querySelectorAll('#transfer-fund-panel input, #transfer-fund-panel select').forEach(field => {
+            field.value = '';
+        });
+        setTransferFundPanelVisibility();
+
         const status = document.getElementById('status');
         if (status) {
             status.style.color = "var(--cbus)";
@@ -401,6 +462,8 @@ const BASE_DATA_URL = "./forms/"; // Same-origin only: blocked from arbitrary ex
                 status.innerText = "Ready.";
                 return alert("Please select at least one form to generate.");
             }
+
+            const transferFunds = readTransferFundDetails();
 
             // Retrieve and prepare form variables
             const title = (document.getElementById('title').value || "").trim();
@@ -1460,6 +1523,18 @@ const BASE_DATA_URL = "./forms/"; // Same-origin only: blocked from arbitrary ex
                     activeMapClean[getCleanKey(key)] = activeMap[key];
                 }
 
+                if (formFileName === 'Combine-Form.pdf') {
+                    const prefixes = ['', '2 ', '3 '];
+                    transferFunds.forEach((fund, index) => {
+                        const prefix = prefixes[index];
+                        activeMapClean[getCleanKey(`${prefix}Combine FROM Fund name SMSF`)] = fund.name;
+                        activeMapClean[getCleanKey(`${prefix}Combine FROM Membership number`)] = fund.account;
+                        activeMapClean[getCleanKey(`${prefix}Combine FROM SMSF phone number`)] = fund.phone.replace(/\D/g, '');
+                        activeMapClean[getCleanKey(`${prefix}Combine FROM ABN SMSF`)] = fund.abn.replace(/\D/g, '');
+                        activeMapClean[getCleanKey(`${prefix}Combine FROM USI`)] = fund.usi;
+                    });
+                }
+
                 fields.forEach((field) => {
                     const fieldName = field.getName();
                     const cleanFieldName = getCleanKey(fieldName);
@@ -1570,6 +1645,7 @@ URL.revokeObjectURL(localUrl);
 
 // Event bindings are external rather than inline, allowing CSP to reject inline script execution.
 document.addEventListener('DOMContentLoaded', () => {
+    initialiseTransferFundPanel();
     document.getElementById('mode-manual')?.addEventListener('click', () => switchInputMode('manual'));
     document.getElementById('mode-import')?.addEventListener('click', () => switchInputMode('import'));
     document.getElementById('parse-data')?.addEventListener('click', parsePastedText);

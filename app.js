@@ -37,8 +37,8 @@ const BASE_DATA_URL = "./forms/"; // Same-origin only: blocked from arbitrary ex
     const TRANSFER_FUND_DIRECTORY = Object.freeze([
         { id: 'australiansuper', name: 'AustralianSuper', abn: '65 714 394 898', phone: '1300 300 273', usi: 'STA0100AU' },
         { id: 'art-super-savings', label: 'Australian Retirement Trust (USI ending 003)', name: 'Australian Retirement Trust', abn: '60 905 115 063', phone: '13 11 84', usi: '60905115063003' },
-        { id: 'art-qsuper-general', label: 'ART/QSuper General (USI ending 001)', name: 'ART/QSuper General', abn: '60 905 115 063', phone: '1300 360 750', usi: '60905115063001' },
-        { id: 'art-qsuper-default', label: 'ART/QSuper Government/Default Employer (USI ending 002)', name: 'ART/QSuper Government/Default Employer', abn: '60 905 115 063', phone: '1300 360 750', usi: '60905115063002' },
+        { id: 'art-qsuper-general', label: 'ART/QSuper General (USI ending 001)', name: 'Australian Retirement Trust', abn: '60 905 115 063', phone: '1300 360 750', usi: '60905115063001' },
+        { id: 'art-qsuper-default', label: 'ART/QSuper Government/Default Employer (USI ending 002)', name: 'Australian Retirement Trust', abn: '60 905 115 063', phone: '1300 360 750', usi: '60905115063002' },
         { id: 'hostplus', name: 'Hostplus', abn: '68 657 495 890', phone: '1300 467 875', usi: 'HOS0100AU' },
         { id: 'rest', name: 'Rest', abn: '62 653 671 394', phone: '1300 300 778', usi: 'RES0103AU' },
         { id: 'hesta', name: 'HESTA', abn: '64 971 749 321', phone: '1800 813 327', usi: 'HST0100AU' },
